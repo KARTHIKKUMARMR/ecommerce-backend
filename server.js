@@ -13,8 +13,19 @@ const reviewRoutes = require('./routes/reviews');
 const app = express();
 
 // Middleware
-app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
-app.use(express.json());
+const allowedOrigins = ['http://localhost:5173', 'https://frontend-red-two-75.vercel.app', 'https://frontend-46l3t36gi-20231049karthikkumar-4616s-projects.vercel.app'];
+app.use(cors({ 
+  origin: function(origin, callback) {
+    if (!origin || allowedOrigins.some(o => origin.startsWith(o) || o.startsWith(origin))) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Allow all temporarily to ensure it works
+    }
+  }, 
+  credentials: true 
+}));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
@@ -24,8 +35,9 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/reviews', reviewRoutes);
 
-// Health check
-app.get('/api/health', (req, res) => res.json({ status: 'ok', message: 'BrandName API running' }));
+// Health check and Root route
+app.get('/', (req, res) => res.send('Welcome to HASHTHAKALA API! The backend is successfully running.'));
+app.get('/api/health', (req, res) => res.json({ status: 'ok', message: 'HASHTHAKALA API running' }));
 
 // Error handler
 app.use((err, req, res, next) => {
