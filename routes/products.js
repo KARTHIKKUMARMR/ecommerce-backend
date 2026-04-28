@@ -21,7 +21,12 @@ router.get('/', async (req, res) => {
 
     const skip = (Number(page) - 1) * Number(limit);
     const total = await Product.countDocuments(query);
-    const products = await Product.find(query).skip(skip).limit(Number(limit)).sort({ createdAt: -1 });
+    const products = await Product.find(query)
+      .skip(skip)
+      .limit(Number(limit))
+      .sort({ createdAt: -1 })
+      .lean()
+      .allowDiskUse(true);
 
     res.json({ products, total, page: Number(page), pages: Math.ceil(total / Number(limit)) });
   } catch (err) {

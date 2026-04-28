@@ -18,8 +18,15 @@ router.use(protect, adminOnly);
 
 // Products CRUD
 router.get('/products', async (req, res) => {
-  const products = await Product.find().sort({ createdAt: -1 });
-  res.json(products);
+  try {
+    const products = await Product.find()
+      .sort({ createdAt: -1 })
+      .lean()
+      .allowDiskUse(true);
+    res.json(products);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 });
 
 router.post('/products', upload.array('images', 5), async (req, res) => {

@@ -19,5 +19,10 @@ const productSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 productSchema.index({ name: 'text', description: 'text', tags: 'text' });
+productSchema.index({ createdAt: -1 });          // for default sort
+productSchema.index({ category: 1, createdAt: -1 }); // for category filter + sort
+productSchema.index({ price: 1 });               // for price range queries
+productSchema.index({ isFeatured: 1 });          // for featured products
+productSchema.index({ isOnSale: 1 });            // for sale products
 
 module.exports = mongoose.model('Product', productSchema);
