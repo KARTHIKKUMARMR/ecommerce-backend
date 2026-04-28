@@ -13,16 +13,26 @@ const reviewRoutes = require('./routes/reviews');
 const app = express();
 
 // Middleware
-const allowedOrigins = ['http://localhost:5173', 'https://frontend-red-two-75.vercel.app', 'https://frontend-46l3t36gi-20231049karthikkumar-4616s-projects.vercel.app'];
-app.use(cors({ 
-  origin: function(origin, callback) {
-    if (!origin || allowedOrigins.some(o => origin.startsWith(o) || o.startsWith(origin))) {
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+
+    const isAllowed =
+      origin === 'http://localhost:5173' ||
+      origin === 'http://localhost:3000' ||
+      origin.endsWith('.vercel.app') ||             // All vercel preview/prod URLs
+      origin.includes('20231049karthikkumar');       // Your specific Vercel team URLs
+
+    if (isAllowed) {
       callback(null, true);
     } else {
-      callback(null, true); // Allow all temporarily to ensure it works
+      callback(new Error(`CORS policy: Origin ${origin} not allowed`));
     }
-  }, 
-  credentials: true 
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ extended: true, limit: '100mb' }));
