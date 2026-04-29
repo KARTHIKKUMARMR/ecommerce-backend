@@ -171,6 +171,16 @@ router.put('/orders/:id/status', async (req, res) => {
   }
 });
 
+router.delete('/orders/:id', async (req, res) => {
+  try {
+    const order = await Order.findByIdAndDelete(req.params.id);
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+    res.json({ message: 'Order deleted' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // ─── USERS ───────────────────────────────────────────────────────────────────
 
 router.get('/users', async (req, res) => {
@@ -186,12 +196,39 @@ router.get('/users', async (req, res) => {
 
 router.get('/stats', async (req, res) => {
   try {
-    const totalProducts = await Product.countDocuments();
-    const totalOrders   = await Order.countDocuments();
-    const totalUsers    = await User.countDocuments();
-    const revenueData   = await Order.aggregate([{ $group: { _id: null, total: { $sum: '$total' } } }]);
+    const { filter } = req.query;
+    let dateFilter = {};
+    const now = new Date();
+
+    if (filter === 'today') {
+      const startOfDay = new Date(now.setHours(0, 0, 0, 0));
+      dateFilter = { createdAt: { $gte: startOfDay } };
+    } else if (filter === '7days') {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      dateFilter = { createdAt: { $gte: sevenDaysAgo } };
+    } else if (filter === 'month') {
+      const lastMonth = new Date();
+      lastMonth.setMonth(lastMonth.getMonth() - 1);
+      dateFilter = { createdAt: { $gte: lastMonth } };
+    }
+
+    const totalProducts = await Product.countDocuments(dateFilter);
+    const totalOrders   = await Order.countDocuments(dateFilter);
+    const totalUsers    = await User.countDocuments(dateFilter);
+    
+    const revenueData   = await Order.aggregate([
+      { $match: dateFilter },
+      { $group: { _id: null, total: { $sum: '$total' } } }
+    ]);
     const totalRevenue  = revenueData[0]?.total || 0;
-    res.json({ totalProducts, totalOrders, totalUsers, totalRevenue });
+
+    const recentOrders = await Order.find(dateFilter)
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .populate('user', 'name');
+
+    res.json({ totalProducts, totalOrders, totalUsers, totalRevenue, recentOrders });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
