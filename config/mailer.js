@@ -2,50 +2,90 @@
  * mailer.js — Email Configuration using Nodemailer
  *
  * HOW IT WORKS:
- * - Nodemailer is a Node.js library that sends emails.
- * - We create a "transporter" — think of it as the email client.
- * - It uses Gmail SMTP with your credentials (stored safely in .env).
- * - We export a `sendMail` helper function that any route can use.
+ * ─────────────────────────────────────────────────
+ * MODE 1 — DEVELOPMENT (no Gmail setup needed):
+ *   If EMAIL_USER is not set (or is the placeholder), we automatically
+ *   create a FREE Ethereal test inbox. Nodemailer logs a preview URL
+ *   to the console — open it to see the exact email that was sent.
+ *   The OTP is also always printed to the console for quick testing.
  *
- * SETUP REQUIRED:
- * 1. In .env, add: EMAIL_USER=yourgmail@gmail.com
- * 2. In .env, add: EMAIL_PASS=your_16char_app_password
- * 3. In Google Account → Security → App Passwords → generate one for "Mail"
+ * MODE 2 — PRODUCTION (Gmail SMTP):
+ *   When EMAIL_USER and EMAIL_PASS are set in .env, emails are sent
+ *   via Gmail SMTP to the real recipient inbox.
+ *   Requirements:
+ *     1. EMAIL_USER = your Gmail address
+ *     2. EMAIL_PASS = 16-char App Password (NOT your normal Gmail password)
+ *        Get it: Google Account → Security → 2-Step Verification → App Passwords
+ * ─────────────────────────────────────────────────
  */
 
 const nodemailer = require('nodemailer');
 
-// Create the transporter (Gmail SMTP)
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,   // Your Gmail address from .env
-    pass: process.env.EMAIL_PASS,   // Your Gmail App Password from .env
-  },
-});
+// Check if real Gmail credentials are configured
+const isEmailConfigured = () => {
+  const user = process.env.EMAIL_USER;
+  const pass = process.env.EMAIL_PASS;
+  return (
+    user &&
+    pass &&
+    user !== 'your_gmail@gmail.com' &&
+    pass !== 'your_16char_app_password' &&
+    user.includes('@')
+  );
+};
+
+// Cache the transporter so we don't recreate it on every request
+let _transporter = null;
 
 /**
- * sendMail — sends an email
- * @param {string} to       - Recipient email address
- * @param {string} subject  - Email subject line
- * @param {string} html     - HTML body of the email
+ * getTransporter — lazily creates the email transporter
+ * Uses Gmail if configured, otherwise uses Ethereal (free test inbox)
  */
-const sendMail = async (to, subject, html) => {
-  await transporter.sendMail({
-    from: process.env.EMAIL_FROM || `HASHTHAKALA <${process.env.EMAIL_USER}>`,
-    to,
-    subject,
-    html,
-  });
+const getTransporter = async () => {
+  if (_transporter) return _transporter;
+
+  if (isEmailConfigured()) {
+    // ── Production: Gmail SMTP ─────────────────────────────────────────
+    console.log('📧 Email: Using Gmail SMTP →', process.env.EMAIL_USER);
+    _transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+  } else {
+    // ── Development: Ethereal (free test inbox, no setup needed) ────────
+    console.log('⚠️  Email: Gmail not configured — using Ethereal test inbox');
+    console.log('   (Emails won\'t reach real inboxes. Check console for preview URL.)');
+
+    // Ethereal creates a temporary test email account automatically
+    const testAccount = await nodemailer.createTestAccount();
+    _transporter = nodemailer.createTransport({
+      host:   'smtp.ethereal.email',
+      port:   587,
+      secure: false,
+      auth: {
+        user: testAccount.user,
+        pass: testAccount.pass,
+      },
+    });
+    console.log('   Ethereal account created:', testAccount.user);
+  }
+
+  return _transporter;
 };
 
 /**
  * sendOTPEmail — sends a formatted OTP verification email
- * @param {string} to   - Recipient email
- * @param {string} otp  - The 6-digit OTP code
- * @param {string} name - Recipient's name
+ * @param {string} to   - Recipient email address
+ * @param {string} otp  - The 6-digit OTP (RAW, not hashed)
+ * @param {string} name - Recipient's name for personalization
+ * @returns {string|null} - Preview URL (Ethereal only) or null (Gmail)
  */
 const sendOTPEmail = async (to, otp, name) => {
+  const transporter = await getTransporter();
+
   const html = `
     <div style="font-family: Georgia, serif; max-width: 520px; margin: 0 auto; background: #1a0a0a; color: #f5f0e8; padding: 40px; border-radius: 12px;">
       <div style="text-align: center; margin-bottom: 32px;">
@@ -60,7 +100,7 @@ const sendOTPEmail = async (to, otp, name) => {
 
       <div style="background: #2a1010; border: 2px solid #c9a84c; border-radius: 12px; padding: 28px; text-align: center; margin: 28px 0;">
         <p style="color: #8b7040; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; margin: 0 0 12px;">Your Verification Code</p>
-        <div style="font-size: 42px; font-weight: 700; letter-spacing: 12px; color: #c9a84c;">${otp}</div>
+        <div style="font-size: 48px; font-weight: 700; letter-spacing: 14px; color: #c9a84c; font-family: monospace;">${otp}</div>
         <p style="color: #6b5030; font-size: 12px; margin: 12px 0 0;">This code expires in <strong style="color:#c9a84c;">10 minutes</strong></p>
       </div>
 
@@ -70,7 +110,25 @@ const sendOTPEmail = async (to, otp, name) => {
     </div>
   `;
 
-  await sendMail(to, 'Verify your HASHTHAKALA account — OTP Code', html);
+  const info = await transporter.sendMail({
+    from:    process.env.EMAIL_FROM || `HASHTHAKALA <${isEmailConfigured() ? process.env.EMAIL_USER : 'noreply@hashthakala.com'}>`,
+    to,
+    subject: '🔐 Verify your HASHTHAKALA account — OTP Code',
+    html,
+  });
+
+  // For Ethereal: log the preview URL to the console
+  const previewUrl = nodemailer.getTestMessageUrl(info);
+  if (previewUrl) {
+    console.log('\n──────────────────────────────────────────────');
+    console.log('📬 ETHEREAL EMAIL PREVIEW (dev mode):');
+    console.log('   Open this URL to see the email:');
+    console.log('  ', previewUrl);
+    console.log('──────────────────────────────────────────────\n');
+    return previewUrl; // returned so the API can include it in dev response
+  }
+
+  return null;
 };
 
-module.exports = { sendMail, sendOTPEmail };
+module.exports = { sendOTPEmail, isEmailConfigured };
