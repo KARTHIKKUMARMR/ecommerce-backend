@@ -90,9 +90,9 @@ const sendOTPEmail = async (to, otp, name, origin) => {
   try {
     // Make sure we don't have trailing slashes
     const baseUrl = origin.endsWith('/') ? origin.slice(0, -1) : origin;
-    const vercelApiUrl = \`\${baseUrl}/api/send-email\`;
+    const vercelApiUrl = `${baseUrl}/api/send-email`;
     
-    console.log(\`☁️ Production detected. Routing email request to Vercel: \${vercelApiUrl}\`);
+    console.log(`☁️ Production detected. Routing email request to Vercel: ${vercelApiUrl}`);
 
     // We use standard Fetch API to call your Vercel frontend
     const response = await fetch(vercelApiUrl, {
@@ -114,7 +114,7 @@ const sendOTPEmail = async (to, otp, name, origin) => {
       throw new Error(data.error || 'Vercel API failed to send email');
     }
 
-    console.log(\`✅ OTP email routed via Vercel successfully -> \${to}\`);
+    console.log(`✅ OTP email routed via Vercel successfully -> ${to}`);
     return null;
 
   } catch (err) {
