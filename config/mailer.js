@@ -1,49 +1,63 @@
 /**
- * mailer.js — Email via Gmail SMTP (Port 465 / SSL)
+ * mailer.js — Email via Brevo (formerly Sendinblue) SMTP Relay
  *
- * Uses Gmail SMTP with direct port 465 (SSL) instead of the 'gmail' shorthand.
- * Port 465 with SSL is more reliable from cloud servers like Render.
+ * WHY NOT GMAIL?
+ * Render (and most cloud servers on AWS) cannot connect to Gmail's SMTP servers.
+ * Gmail SMTP is blocked at the network level from cloud IPs to prevent spam.
+ * This causes "Connection timeout" errors that have nothing to do with credentials.
  *
- * .env needed (set ONCE, never changes per user):
- *   EMAIL_USER = srihasthikala@gmail.com
- *   EMAIL_PASS = otufvwtkyehnzzaa  (Gmail App Password)
+ * WHY BREVO?
+ * Brevo is a dedicated email delivery service. It works perfectly from Render.
+ * Free tier: 300 emails/day, 9000/month. No credit card required.
+ * Their SMTP relay (smtp-relay.brevo.com) is not blocked by cloud providers.
+ *
+ * .env variables needed:
+ *   BREVO_USER = srihasthikala@gmail.com   (your Brevo account email)
+ *   BREVO_PASS = xsmtpsib-xxxx...          (Brevo SMTP key from Settings page)
+ *
+ * HOW TO GET BREVO CREDENTIALS:
+ *   1. Sign up free at https://app.brevo.com  (use srihasthikala@gmail.com)
+ *   2. Go to: Account (top right) → SMTP & API
+ *   3. Under "SMTP" tab → click "Generate a new SMTP key"
+ *   4. Copy the key → paste as BREVO_PASS in .env and Render dashboard
  */
 
 const nodemailer = require('nodemailer');
 
+// Check if Brevo SMTP credentials are configured
 const isEmailConfigured = () => {
-  const user = process.env.EMAIL_USER;
-  const pass = process.env.EMAIL_PASS;
+  const user = process.env.BREVO_USER || process.env.EMAIL_USER;
+  const pass = process.env.BREVO_PASS || process.env.EMAIL_PASS;
   return (
     !!user &&
     !!pass &&
-    user !== 'your_gmail@gmail.com' &&
+    user.includes('@') &&
     pass !== 'your_16char_app_password' &&
     pass !== 'REPLACE_WITH_APP_PASSWORD' &&
-    user.includes('@')
+    pass !== 'REPLACE_WITH_BREVO_SMTP_KEY'
   );
 };
 
-// Create Gmail transporter using direct SMTP settings (port 465 SSL)
-// This is more reliable than service:'gmail' from cloud servers like Render
-const createGmailTransporter = () => {
+// Get the sender email
+const getSenderEmail = () => process.env.BREVO_USER || process.env.EMAIL_USER || 'noreply@hashthakala.com';
+
+// Create Brevo SMTP transporter
+// Brevo SMTP relay works from ALL cloud servers including Render/AWS
+const createBrevoTransporter = () => {
   return nodemailer.createTransport({
-    host:   'smtp.gmail.com',
-    port:   465,
-    secure: true,        // true for port 465 (SSL), false for 587 (TLS)
+    host:   'smtp-relay.brevo.com',  // Brevo's SMTP relay server
+    port:   587,                      // Standard SMTP port (not blocked by cloud providers)
+    secure: false,                    // false for port 587 (STARTTLS)
     auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-    tls: {
-      rejectUnauthorized: false,  // helps avoid TLS cert issues on some servers
+      user: process.env.BREVO_USER || process.env.EMAIL_USER,
+      pass: process.env.BREVO_PASS || process.env.EMAIL_PASS,
     },
   });
 };
 
-// Ethereal fallback for dev mode (when Gmail not configured)
+// Dev fallback — Ethereal test inbox (no real emails, no setup needed)
 const createDevTransporter = async () => {
-  console.warn('⚠️  Gmail not configured. Using Ethereal test inbox (dev mode).');
+  console.warn('⚠️  Email not configured. Using Ethereal test inbox (dev fallback).');
   const testAccount = await nodemailer.createTestAccount();
   return nodemailer.createTransport({
     host: 'smtp.ethereal.email',
@@ -58,8 +72,8 @@ const createDevTransporter = async () => {
  * Sends OTP verification email to any email address.
  *
  * @param {string} to    — Recipient email (whoever is registering on the website)
- * @param {string} otp   — The 6-digit OTP (raw number, not hashed)
- * @param {string} name  — Recipient's name
+ * @param {string} otp   — 6-digit OTP (raw, not hashed)
+ * @param {string} name  — User's name for personalization
  * @returns {string|null} — Ethereal preview URL (dev only) or null
  */
 const sendOTPEmail = async (to, otp, name) => {
@@ -67,8 +81,8 @@ const sendOTPEmail = async (to, otp, name) => {
   let isDevMode = false;
 
   if (isEmailConfigured()) {
-    transporter = createGmailTransporter();
-    console.log(`📧 Sending OTP email FROM: ${process.env.EMAIL_USER} → TO: ${to}`);
+    transporter = createBrevoTransporter();
+    console.log(`📧 Sending OTP via Brevo → FROM: ${getSenderEmail()} → TO: ${to}`);
   } else {
     transporter = await createDevTransporter();
     isDevMode = true;
@@ -112,11 +126,11 @@ const sendOTPEmail = async (to, otp, name) => {
 </html>`;
 
   const info = await transporter.sendMail({
-    from:    `"HASHTHAKALA" <${process.env.EMAIL_USER || 'noreply@hashthakala.com'}>`,
+    from:    `"HASHTHAKALA" <${getSenderEmail()}>`,
     to,
     subject: `${otp} is your HASHTHAKALA verification code`,
     html,
-    text: `Hello ${name},\n\nYour HASHTHAKALA verification code is: ${otp}\n\nThis code expires in 10 minutes.\n\nDo not share this code with anyone.\n\n— HASHTHAKALA Heritage Fashion`,
+    text: `Hello ${name},\n\nYour HASHTHAKALA verification code is: ${otp}\n\nThis code expires in 10 minutes. Do not share this with anyone.\n\n— HASHTHAKALA Heritage Fashion`,
   });
 
   if (isDevMode) {
@@ -125,7 +139,7 @@ const sendOTPEmail = async (to, otp, name) => {
     return previewUrl;
   }
 
-  console.log(`✅ OTP email delivered → ${to}`);
+  console.log(`✅ OTP email delivered to: ${to}`);
   return null;
 };
 
