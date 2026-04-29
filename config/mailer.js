@@ -30,6 +30,7 @@ const isEmailConfigured = () => {
     pass &&
     user !== 'your_gmail@gmail.com' &&
     pass !== 'your_16char_app_password' &&
+    pass !== 'REPLACE_WITH_APP_PASSWORD' &&
     user.includes('@')
   );
 };

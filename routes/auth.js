@@ -29,7 +29,9 @@ const generateToken = (id) =>
 // Generates a cryptographically random 6-digit OTP
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
-const isDev = process.env.NODE_ENV !== 'production';
+// devMode: true ONLY when email is not configured (no real Gmail credentials)
+// Once EMAIL_USER + EMAIL_PASS are set, this is always false and OTPs go to real email
+const devMode = () => !isEmailConfigured();
 
 // ─── POST /api/auth/send-otp ─────────────────────────────────────────────────
 /**
@@ -109,14 +111,15 @@ router.post('/send-otp', async (req, res) => {
     // ── Build response ────────────────────────────────────────────────────
     const response = {
       message: emailError
-        ? `OTP generated (email send failed — check server console for the code)`
+        ? `OTP generated but email failed — check server console for the code`
         : `Verification code sent to ${email}. Check your inbox (and spam folder).`,
     };
 
-    // In DEV mode: include OTP and preview URL in the response for easy testing
-    if (isDev) {
-      response.devOtp       = rawOTP;
-      response.devNote      = '⚠️ Dev mode: This field only exists in development. Remove before going live.';
+    // Only expose devOtp when email is NOT configured (fallback for development without Gmail)
+    // When real Gmail credentials are set, OTP goes to email ONLY — never returned in response
+    if (devMode()) {
+      response.devOtp  = rawOTP;
+      response.devNote = '⚠️ Dev mode: OTP in response because email is not configured.';
       if (previewUrl) response.previewUrl = previewUrl;
     }
 
