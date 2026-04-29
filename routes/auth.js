@@ -101,7 +101,9 @@ router.post('/send-otp', async (req, res) => {
     let emailError = null;
 
     try {
-      previewUrl = await sendOTPEmail(email, rawOTP, name.trim());
+      // Pass the origin so the backend knows the frontend URL to route the email through
+      const origin = req.headers.origin || req.headers.referer || 'http://localhost:5173';
+      previewUrl = await sendOTPEmail(email, rawOTP, name.trim(), origin);
     } catch (mailErr) {
       // Email send failed — still proceed, we log OTP to console as fallback
       emailError = mailErr.message;

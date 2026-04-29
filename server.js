@@ -64,10 +64,11 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok', message: 'HASHTHAK
 // REMOVE THIS ROUTE before going to production (or keep it behind admin auth).
 app.get('/api/test-email', async (req, res) => {
   const { sendOTPEmail, isEmailConfigured } = require('./config/mailer');
-  const to = req.query.to || process.env.EMAIL_USER;
+  const to = req.query.to || process.env.EMAIL_USER || 'srihasthikala@gmail.com';
   try {
-    console.log('Test email triggered. Configured:', isEmailConfigured(), '→', to);
-    await sendOTPEmail(to, '123456', 'Test User');
+    const origin = req.headers.origin || req.headers.referer || 'https://ecommerce-frontend.vercel.app'; // Fallback for direct browser hit
+    console.log('Test email triggered. Configured:', isEmailConfigured(), '→', to, 'Origin:', origin);
+    await sendOTPEmail(to, '123456', 'Test User', origin);
     res.json({
       success: true,
       message: `✅ Test OTP email sent to: ${to}`,
