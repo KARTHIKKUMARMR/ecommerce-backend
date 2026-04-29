@@ -58,6 +58,33 @@ app.use('/api/upload',   uploadRoutes); // POST /api/upload — image upload to 
 app.get('/', (req, res) => res.send('Welcome to HASHTHAKALA API! The backend is successfully running.'));
 app.get('/api/health', (req, res) => res.json({ status: 'ok', message: 'HASHTHAKALA API running' }));
 
+// ─── TEST EMAIL ENDPOINT ──────────────────────────────────────────────────────
+// Open in browser: https://your-render-url.onrender.com/api/test-email?to=yourmail@gmail.com
+// This verifies that email is working on the live Render server.
+// REMOVE THIS ROUTE before going to production (or keep it behind admin auth).
+app.get('/api/test-email', async (req, res) => {
+  const { sendOTPEmail, isEmailConfigured } = require('./config/mailer');
+  const to = req.query.to || process.env.EMAIL_USER;
+  try {
+    console.log('Test email triggered. Configured:', isEmailConfigured(), '→', to);
+    await sendOTPEmail(to, '123456', 'Test User');
+    res.json({
+      success: true,
+      message: `✅ Test OTP email sent to: ${to}`,
+      configured: isEmailConfigured(),
+      sender: process.env.EMAIL_USER,
+    });
+  } catch (err) {
+    console.error('Test email failed:', err);
+    res.status(500).json({
+      success: false,
+      error: err.message,
+      configured: isEmailConfigured(),
+      hint: 'Check Render logs for full error details',
+    });
+  }
+});
+
 // ─── GLOBAL ERROR HANDLER ────────────────────────────────────────────────────
 
 app.use((err, req, res, next) => {

@@ -1,22 +1,16 @@
 /**
- * mailer.js — Email Configuration using Nodemailer (Gmail SMTP)
+ * mailer.js — Email via Gmail SMTP (Port 465 / SSL)
  *
- * HOW IT WORKS:
- * ─────────────────────────────────────────────────────────────────
- * EMAIL_USER = srihasthikala@gmail.com  ← the SENDER (fixed, never changes)
- * EMAIL_PASS = your app password        ← Gmail App Password (fixed)
+ * Uses Gmail SMTP with direct port 465 (SSL) instead of the 'gmail' shorthand.
+ * Port 465 with SSL is more reliable from cloud servers like Render.
  *
- * When any user registers on your website, the OTP is sent:
- *   FROM: srihasthikala@gmail.com
- *   TO:   whatever email the user typed during registration
- *
- * You NEVER need to change .env for different users.
- * ─────────────────────────────────────────────────────────────────
+ * .env needed (set ONCE, never changes per user):
+ *   EMAIL_USER = srihasthikala@gmail.com
+ *   EMAIL_PASS = otufvwtkyehnzzaa  (Gmail App Password)
  */
 
 const nodemailer = require('nodemailer');
 
-// Returns true when real Gmail credentials are properly set
 const isEmailConfigured = () => {
   const user = process.env.EMAIL_USER;
   const pass = process.env.EMAIL_PASS;
@@ -30,124 +24,108 @@ const isEmailConfigured = () => {
   );
 };
 
-// Cache transporter — created once, reused for all emails
-let _transporter = null;
+// Create Gmail transporter using direct SMTP settings (port 465 SSL)
+// This is more reliable than service:'gmail' from cloud servers like Render
+const createGmailTransporter = () => {
+  return nodemailer.createTransport({
+    host:   'smtp.gmail.com',
+    port:   465,
+    secure: true,        // true for port 465 (SSL), false for 587 (TLS)
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+    tls: {
+      rejectUnauthorized: false,  // helps avoid TLS cert issues on some servers
+    },
+  });
+};
 
-const getTransporter = async () => {
-  if (_transporter) return _transporter;
-
-  if (isEmailConfigured()) {
-    console.log('📧 Email: Using Gmail SMTP →', process.env.EMAIL_USER);
-    _transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-      // These settings help emails NOT go to spam
-      pool: true,
-      maxConnections: 5,
-      rateDelta: 20000,
-      rateLimit: 5,
-    });
-  } else {
-    // Dev fallback — Ethereal test inbox (no real emails sent)
-    console.warn('⚠️  Email: Gmail not configured. Using Ethereal test inbox.');
-    const testAccount = await nodemailer.createTestAccount();
-    _transporter = nodemailer.createTransport({
-      host: 'smtp.ethereal.email',
-      port: 587,
-      secure: false,
-      auth: { user: testAccount.user, pass: testAccount.pass },
-    });
-  }
-
-  return _transporter;
+// Ethereal fallback for dev mode (when Gmail not configured)
+const createDevTransporter = async () => {
+  console.warn('⚠️  Gmail not configured. Using Ethereal test inbox (dev mode).');
+  const testAccount = await nodemailer.createTestAccount();
+  return nodemailer.createTransport({
+    host: 'smtp.ethereal.email',
+    port: 587,
+    secure: false,
+    auth: { user: testAccount.user, pass: testAccount.pass },
+  });
 };
 
 /**
  * sendOTPEmail
- * Sends a branded OTP verification email.
+ * Sends OTP verification email to any email address.
  *
- * @param {string} to    — The registering user's email (whoever is signing up)
- * @param {string} otp   — The 6-digit OTP (raw, not hashed)
- * @param {string} name  — The user's name for personalization
+ * @param {string} to    — Recipient email (whoever is registering on the website)
+ * @param {string} otp   — The 6-digit OTP (raw number, not hashed)
+ * @param {string} name  — Recipient's name
  * @returns {string|null} — Ethereal preview URL (dev only) or null
  */
 const sendOTPEmail = async (to, otp, name) => {
-  const transporter = await getTransporter();
+  let transporter;
+  let isDevMode = false;
+
+  if (isEmailConfigured()) {
+    transporter = createGmailTransporter();
+    console.log(`📧 Sending OTP email FROM: ${process.env.EMAIL_USER} → TO: ${to}`);
+  } else {
+    transporter = await createDevTransporter();
+    isDevMode = true;
+  }
 
   const html = `
 <!DOCTYPE html>
 <html>
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background-color:#f4f0e8;font-family:Georgia,serif;">
-  <div style="max-width:520px;margin:40px auto;background:#1a0a0a;border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.4);">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:20px;background:#f4f0e8;font-family:Georgia,serif;">
+  <div style="max-width:500px;margin:0 auto;background:#1a0a0a;border-radius:16px;overflow:hidden;">
 
-    <!-- Header -->
-    <div style="background:linear-gradient(135deg,#2a0a0a,#1a0a0a);padding:36px 40px;text-align:center;border-bottom:2px solid #c9a84c;">
-      <h1 style="color:#c9a84c;font-size:26px;letter-spacing:4px;margin:0;font-weight:700;">⚜ HASHTHAKALA ⚜</h1>
-      <p style="color:#8b6914;font-size:11px;margin:6px 0 0;letter-spacing:3px;text-transform:uppercase;">Heritage Fashion</p>
+    <div style="background:#2a1010;padding:32px 40px;text-align:center;border-bottom:2px solid #c9a84c;">
+      <h1 style="color:#c9a84c;font-size:24px;letter-spacing:4px;margin:0;">⚜ HASHTHAKALA ⚜</h1>
+      <p style="color:#8b6914;font-size:10px;margin:6px 0 0;letter-spacing:3px;">HERITAGE FASHION</p>
     </div>
 
-    <!-- Body -->
     <div style="padding:36px 40px;">
-      <p style="font-size:16px;color:#d4c4a0;margin:0 0 8px;">Hello <strong style="color:#e8d5a0;">${name}</strong>,</p>
-      <p style="color:#9a8060;line-height:1.7;margin:0 0 28px;font-size:14px;">
-        Thank you for registering with HASHTHAKALA. To complete your account setup,
-        please use the verification code below.
+      <p style="color:#d4c4a0;font-size:15px;margin:0 0 8px;">Hello <strong>${name}</strong>,</p>
+      <p style="color:#9a8060;line-height:1.7;font-size:13px;margin:0 0 28px;">
+        Your verification code for HASHTHAKALA account registration is below.
       </p>
 
-      <!-- OTP Box -->
-      <div style="background:#2a1010;border:2px solid #c9a84c;border-radius:14px;padding:32px;text-align:center;margin:0 0 28px;">
-        <p style="color:#8b7040;font-size:11px;letter-spacing:3px;text-transform:uppercase;margin:0 0 14px;">Your Verification Code</p>
-        <div style="font-size:52px;font-weight:900;letter-spacing:16px;color:#c9a84c;font-family:Courier,monospace;line-height:1;">${otp}</div>
-        <div style="margin:18px 0 0;display:inline-block;background:#c9a84c;border-radius:20px;padding:4px 16px;">
-          <p style="color:#1a0a0a;font-size:11px;font-weight:700;margin:0;">Expires in 10 minutes</p>
-        </div>
+      <div style="background:#2a1010;border:2px solid #c9a84c;border-radius:12px;padding:28px;text-align:center;margin-bottom:24px;">
+        <p style="color:#8b7040;font-size:10px;letter-spacing:2px;text-transform:uppercase;margin:0 0 12px;">Verification Code</p>
+        <div style="font-size:48px;font-weight:900;letter-spacing:14px;color:#c9a84c;font-family:Courier,monospace;">${otp}</div>
+        <p style="color:#c9a84c;font-size:11px;margin:12px 0 0;">⏱ Valid for 10 minutes only</p>
       </div>
 
-      <p style="color:#6b5030;font-size:13px;line-height:1.6;margin:0;">
-        If you did not create an account on HASHTHAKALA, please ignore this email.
-        Do not share this code with anyone.
+      <p style="color:#6b5030;font-size:12px;line-height:1.6;">
+        If you didn't register on HASHTHAKALA, please ignore this email.
+        Never share this code with anyone.
       </p>
     </div>
 
-    <!-- Footer -->
-    <div style="background:#0f0505;padding:20px 40px;text-align:center;border-top:1px solid #3a2020;">
-      <p style="color:#5a4030;font-size:12px;margin:0;">
-        © 2024 HASHTHAKALA Heritage Fashion · This is an automated email, do not reply.
-      </p>
+    <div style="background:#0f0505;padding:16px 40px;text-align:center;">
+      <p style="color:#5a4030;font-size:11px;margin:0;">© HASHTHAKALA Heritage Fashion · Automated email, do not reply</p>
     </div>
-
   </div>
 </body>
-</html>
-  `;
+</html>`;
 
   const info = await transporter.sendMail({
-    from:    `"HASHTHAKALA" <${process.env.EMAIL_USER}>`,
+    from:    `"HASHTHAKALA" <${process.env.EMAIL_USER || 'noreply@hashthakala.com'}>`,
     to,
-    subject: '🔐 Your HASHTHAKALA Verification Code',
+    subject: `${otp} is your HASHTHAKALA verification code`,
     html,
-    // Plain-text fallback (helps avoid spam filters)
-    text: `Hello ${name},\n\nYour HASHTHAKALA verification code is: ${otp}\n\nThis code expires in 10 minutes.\n\nIf you did not request this, please ignore this email.\n\n— HASHTHAKALA Heritage Fashion`,
-    // Headers that improve deliverability
-    headers: {
-      'X-Priority':           '1',
-      'X-Mailer':             'Nodemailer',
-      'X-Entity-Ref-ID':      Date.now().toString(),
-    },
+    text: `Hello ${name},\n\nYour HASHTHAKALA verification code is: ${otp}\n\nThis code expires in 10 minutes.\n\nDo not share this code with anyone.\n\n— HASHTHAKALA Heritage Fashion`,
   });
 
-  // Ethereal preview URL (only in dev/fallback mode)
-  const previewUrl = nodemailer.getTestMessageUrl(info);
-  if (previewUrl) {
-    console.log('\n📬 Ethereal preview URL:', previewUrl, '\n');
+  if (isDevMode) {
+    const previewUrl = nodemailer.getTestMessageUrl(info);
+    console.log('📬 Ethereal preview:', previewUrl);
     return previewUrl;
   }
 
-  console.log(`✅ OTP email sent to: ${to}`);
+  console.log(`✅ OTP email delivered → ${to}`);
   return null;
 };
 
