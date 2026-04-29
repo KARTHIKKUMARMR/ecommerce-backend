@@ -1,94 +1,62 @@
 /**
- * mailer.js — Email via Brevo (formerly Sendinblue) SMTP Relay
+ * mailer.js — Email via Resend API
  *
- * WHY NOT GMAIL?
- * Render (and most cloud servers on AWS) cannot connect to Gmail's SMTP servers.
- * Gmail SMTP is blocked at the network level from cloud IPs to prevent spam.
- * This causes "Connection timeout" errors that have nothing to do with credentials.
+ * WHY RESEND?
+ * ─────────────────────────────────────────────────────────────
+ * - Gmail SMTP: blocked by Render (AWS IP restriction)
+ * - Brevo SMTP: requires phone verification for new accounts
+ * - Resend: uses HTTPS API (not SMTP) → works 100% from Render
+ *   Free tier: 3,000 emails/month, 100/day. No phone needed.
+ * ─────────────────────────────────────────────────────────────
  *
- * WHY BREVO?
- * Brevo is a dedicated email delivery service. It works perfectly from Render.
- * Free tier: 300 emails/day, 9000/month. No credit card required.
- * Their SMTP relay (smtp-relay.brevo.com) is not blocked by cloud providers.
+ * SETUP (one time only):
+ *  1. Go to https://resend.com → Sign up free
+ *  2. Go to API Keys → Create API Key → copy it
+ *  3. Add to .env:  RESEND_API_KEY=re_xxxxxxxxxxxx
+ *  4. Add same to Render dashboard environment variables
  *
- * .env variables needed:
- *   BREVO_USER = srihasthikala@gmail.com   (your Brevo account email)
- *   BREVO_PASS = xsmtpsib-xxxx...          (Brevo SMTP key from Settings page)
- *
- * HOW TO GET BREVO CREDENTIALS:
- *   1. Sign up free at https://app.brevo.com  (use srihasthikala@gmail.com)
- *   2. Go to: Account (top right) → SMTP & API
- *   3. Under "SMTP" tab → click "Generate a new SMTP key"
- *   4. Copy the key → paste as BREVO_PASS in .env and Render dashboard
+ * The FROM address is "onboarding@resend.dev" until you verify
+ * your domain at resend.com/domains. Works perfectly without it.
  */
 
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
-// Check if Brevo SMTP credentials are configured
+// Returns true when Resend API key is configured
 const isEmailConfigured = () => {
-  const user = process.env.BREVO_USER || process.env.EMAIL_USER;
-  const pass = process.env.BREVO_PASS || process.env.EMAIL_PASS;
-  return (
-    !!user &&
-    !!pass &&
-    user.includes('@') &&
-    pass !== 'your_16char_app_password' &&
-    pass !== 'REPLACE_WITH_APP_PASSWORD' &&
-    pass !== 'REPLACE_WITH_BREVO_SMTP_KEY'
-  );
-};
-
-// Get the sender email
-const getSenderEmail = () => process.env.BREVO_USER || process.env.EMAIL_USER || 'noreply@hashthakala.com';
-
-// Create Brevo SMTP transporter
-// Brevo SMTP relay works from ALL cloud servers including Render/AWS
-const createBrevoTransporter = () => {
-  return nodemailer.createTransport({
-    host:   'smtp-relay.brevo.com',  // Brevo's SMTP relay server
-    port:   587,                      // Standard SMTP port (not blocked by cloud providers)
-    secure: false,                    // false for port 587 (STARTTLS)
-    auth: {
-      user: process.env.BREVO_USER || process.env.EMAIL_USER,
-      pass: process.env.BREVO_PASS || process.env.EMAIL_PASS,
-    },
-  });
-};
-
-// Dev fallback — Ethereal test inbox (no real emails, no setup needed)
-const createDevTransporter = async () => {
-  console.warn('⚠️  Email not configured. Using Ethereal test inbox (dev fallback).');
-  const testAccount = await nodemailer.createTestAccount();
-  return nodemailer.createTransport({
-    host: 'smtp.ethereal.email',
-    port: 587,
-    secure: false,
-    auth: { user: testAccount.user, pass: testAccount.pass },
-  });
+  const key = process.env.RESEND_API_KEY;
+  return !!key && key !== 'REPLACE_WITH_RESEND_API_KEY' && key.startsWith('re_');
 };
 
 /**
  * sendOTPEmail
- * Sends OTP verification email to any email address.
+ * Sends OTP email via Resend API (HTTPS — works from all servers).
  *
- * @param {string} to    — Recipient email (whoever is registering on the website)
- * @param {string} otp   — 6-digit OTP (raw, not hashed)
- * @param {string} name  — User's name for personalization
- * @returns {string|null} — Ethereal preview URL (dev only) or null
+ * @param {string} to    — Recipient email (whoever is registering)
+ * @param {string} otp   — 6-digit OTP (raw)
+ * @param {string} name  — User's name
  */
 const sendOTPEmail = async (to, otp, name) => {
-  let transporter;
-  let isDevMode = false;
-
-  if (isEmailConfigured()) {
-    transporter = createBrevoTransporter();
-    console.log(`📧 Sending OTP via Brevo → FROM: ${getSenderEmail()} → TO: ${to}`);
-  } else {
-    transporter = await createDevTransporter();
-    isDevMode = true;
+  if (!isEmailConfigured()) {
+    // Dev fallback — log OTP to console (no email sent)
+    console.log('━'.repeat(50));
+    console.log('⚠️  RESEND not configured. DEV MODE.');
+    console.log(`📧 OTP for ${to}: ${otp}`);
+    console.log('   Add RESEND_API_KEY to .env to send real emails.');
+    console.log('━'.repeat(50));
+    return null;
   }
 
-  const html = `
+  const resend = new Resend(process.env.RESEND_API_KEY);
+
+  console.log(`📧 Sending OTP via Resend → TO: ${to}`);
+
+  const { data, error } = await resend.emails.send({
+    // Using Resend's shared domain for testing (works without domain verification)
+    // Once you verify your domain at resend.com/domains, change this to your domain
+    from: 'HASHTHAKALA <onboarding@resend.dev>',
+    to:      [to],
+    subject: `${otp} is your HASHTHAKALA verification code`,
+    html: `
 <!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
@@ -123,23 +91,16 @@ const sendOTPEmail = async (to, otp, name) => {
     </div>
   </div>
 </body>
-</html>`;
-
-  const info = await transporter.sendMail({
-    from:    `"HASHTHAKALA" <${getSenderEmail()}>`,
-    to,
-    subject: `${otp} is your HASHTHAKALA verification code`,
-    html,
-    text: `Hello ${name},\n\nYour HASHTHAKALA verification code is: ${otp}\n\nThis code expires in 10 minutes. Do not share this with anyone.\n\n— HASHTHAKALA Heritage Fashion`,
+</html>`,
+    text: `Hello ${name},\n\nYour HASHTHAKALA verification code is: ${otp}\n\nThis code expires in 10 minutes. Do not share it with anyone.\n\n— HASHTHAKALA Heritage Fashion`,
   });
 
-  if (isDevMode) {
-    const previewUrl = nodemailer.getTestMessageUrl(info);
-    console.log('📬 Ethereal preview:', previewUrl);
-    return previewUrl;
+  if (error) {
+    console.error('❌ Resend error:', error);
+    throw new Error(error.message || 'Email delivery failed');
   }
 
-  console.log(`✅ OTP email delivered to: ${to}`);
+  console.log(`✅ OTP email delivered → ${to} (ID: ${data?.id})`);
   return null;
 };
 
