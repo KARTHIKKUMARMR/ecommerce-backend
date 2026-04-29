@@ -1,53 +1,32 @@
 /**
- * mailer.js — Email via Vercel Frontend API
+ * mailer.js — Email via Brevo REST API
  *
- * HOW IT WORKS:
- * ─────────────────────────────────────────────────────────────
- * Render completely blocks Gmail SMTP (ports 465/587).
- * Vercel does NOT block it.
- *
- * So, instead of Render sending the email directly, Render
- * makes a simple HTTP POST request to your Vercel frontend's
- * serverless function (/api/send-email). 
- * 
- * Vercel then uses your Gmail App Password to actually send the email.
- * This completely bypasses the block, uses zero new accounts,
- * and allows sending to ANY customer!
- * ─────────────────────────────────────────────────────────────
+ * This uses Brevo's HTTP API instead of SMTP.
+ * Why? 
+ * 1. Bypasses Render's strict SMTP block (since it uses HTTP port 443).
+ * 2. 300 free emails per day.
+ * 3. Simple and fast.
  */
 
-const nodemailer = require('nodemailer');
-
-// Returns true since we no longer need the backend to hold credentials
-// The credentials are now hardcoded in the frontend Vercel function for simplicity.
-const isEmailConfigured = () => true;
+// We don't need nodemailer for the REST API
+const isEmailConfigured = () => {
+  return !!process.env.BREVO_API_KEY && process.env.BREVO_API_KEY !== 'REPLACE_WITH_BREVO_API_KEY';
+};
 
 /**
  * sendOTPEmail
- *
  * @param {string} to    — Recipient email
  * @param {string} otp   — 6-digit OTP
  * @param {string} name  — User's name
- * @param {string} origin — The URL of the frontend making the request
  */
-const sendOTPEmail = async (to, otp, name, origin) => {
-  // 1. If we are testing locally, we can just send it directly using Nodemailer!
-  // Your home internet doesn't block Gmail.
-  if (!origin || origin.includes('localhost') || process.env.NODE_ENV !== 'production') {
-    console.log('💻 Local dev detected. Sending directly from backend...');
-    
-    // We use your known working App Password here for local testing
-    const transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 465,
-      secure: true,
-      auth: {
-        user: 'srihasthikala@gmail.com',
-        pass: 'otufvwtkyehnzzaa',
-      },
-    });
+const sendOTPEmail = async (to, otp, name) => {
+  if (!isEmailConfigured()) {
+    console.warn('⚠️  BREVO_API_KEY not found in .env. Skipping email send. (DEV MODE)');
+    console.log(`📧 OTP for ${to}: ${otp}`);
+    return null;
+  }
 
-    const html = `
+  const htmlContent = `
 <!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
@@ -75,52 +54,40 @@ const sendOTPEmail = async (to, otp, name, origin) => {
 </body>
 </html>`;
 
-    await transporter.sendMail({
-      from: '"HASHTHAKALA" <srihasthikala@gmail.com>',
-      to,
-      subject: `${otp} is your HASHTHAKALA verification code`,
-      html,
-    });
-    console.log(`✅ Local OTP email delivered -> ${to}`);
-    return null;
-  }
+  console.log(`📧 Sending OTP via Brevo API to ${to}...`);
 
-  // 2. We are on RENDER PRODUCTION!
-  // Render blocks Gmail. So we ask Vercel to send it.
-  try {
-    // Make sure we don't have trailing slashes
-    const baseUrl = origin.endsWith('/') ? origin.slice(0, -1) : origin;
-    const vercelApiUrl = `${baseUrl}/api/send-email`;
-    
-    console.log(`☁️ Production detected. Routing email request to Vercel: ${vercelApiUrl}`);
-
-    // We use standard Fetch API to call your Vercel frontend
-    const response = await fetch(vercelApiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+  const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      'accept': 'application/json',
+      'api-key': process.env.BREVO_API_KEY,
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify({
+      sender: {
+        name: 'HASHTHAKALA',
+        email: 'srihasthikala@gmail.com'
       },
-      body: JSON.stringify({
-        to,
-        otp,
-        name,
-        secret: 'hashthakala_internal_secret_2024' // Security check matching the Vercel file
-      })
-    });
+      to: [
+        {
+          email: to,
+          name: name || 'Customer'
+        }
+      ],
+      subject: `${otp} is your HASHTHAKALA verification code`,
+      htmlContent: htmlContent
+    })
+  });
 
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.error || 'Vercel API failed to send email');
-    }
+  const data = await response.json();
 
-    console.log(`✅ OTP email routed via Vercel successfully -> ${to}`);
-    return null;
-
-  } catch (err) {
-    console.error('❌ Failed to route email through Vercel:', err.message);
-    throw new Error('Email routing failed. ' + err.message);
+  if (!response.ok) {
+    console.error('❌ Brevo API Error:', data);
+    throw new Error(data.message || 'Brevo API failed to send email');
   }
+
+  console.log(`✅ Brevo email delivered successfully -> ${to} (Message ID: ${data.messageId})`);
+  return null;
 };
 
 module.exports = { sendOTPEmail, isEmailConfigured };
