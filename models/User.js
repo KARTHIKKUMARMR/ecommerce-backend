@@ -22,6 +22,10 @@ const userSchema = new mongoose.Schema({
   otp:       { type: String, default: null },
   // otpExpiry: the Date/time when the OTP stops being valid (10 minutes)
   otpExpiry: { type: Date, default: null },
+
+  // ── Password Reset ───────────────────────────────────────────────────────
+  resetPasswordToken: { type: String, default: null },
+  resetPasswordExpire: { type: Date, default: null },
 }, { timestamps: true });
 
 // Hash password before saving

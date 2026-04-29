@@ -17,9 +17,10 @@
 const express = require('express');
 const jwt     = require('jsonwebtoken');
 const bcrypt  = require('bcryptjs');
+const crypto  = require('crypto');
 const User    = require('../models/User');
 const { protect }       = require('../middleware/auth');
-const { sendOTPEmail, isEmailConfigured } = require('../config/mailer');
+const { sendOTPEmail, sendResetPasswordEmail, isEmailConfigured } = require('../config/mailer');
 const router = express.Router();
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -269,6 +270,86 @@ router.put('/wishlist/:productId', protect, async (req, res) => {
     await user.save();
     res.json({ wishlist: user.wishlist });
   } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// ─── POST /api/auth/forgot-password ───────────────────────────────────────────
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      // Return success even if user not found to prevent email enumeration
+      return res.json({ message: 'If an account with that email exists, we have sent a password reset link.' });
+    }
+
+    // Generate token
+    const resetToken = crypto.randomBytes(20).toString('hex');
+
+    // Hash token and set to resetPasswordToken field
+    user.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+    // Set expire to 10 minutes
+    user.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
+
+    await user.save();
+
+    // Create reset url
+    const origin = req.headers.origin || req.headers.referer || 'http://localhost:5173';
+    // Ensure origin does not end with trailing slash, and add route
+    const resetUrl = `${origin.replace(/\/$/, '')}/reset-password/${resetToken}`;
+
+    try {
+      await sendResetPasswordEmail(user.email, resetUrl, user.name);
+      res.json({ message: 'If an account with that email exists, we have sent a password reset link.' });
+    } catch (err) {
+      console.error('Email could not be sent', err);
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpire = undefined;
+      await user.save();
+      return res.status(500).json({ message: 'Email could not be sent' });
+    }
+  } catch (err) {
+    console.error('forgot-password error:', err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// ─── POST /api/auth/reset-password/:token ─────────────────────────────────────
+router.post('/reset-password/:token', async (req, res) => {
+  try {
+    const { newPassword } = req.body;
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters' });
+    }
+
+    // Get hashed token
+    const resetPasswordToken = crypto.createHash('sha256').update(req.params.token).digest('hex');
+
+    const user = await User.findOne({
+      resetPasswordToken,
+      resetPasswordExpire: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid or expired password reset token' });
+    }
+
+    // Set new password
+    user.password = newPassword;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+
+    await user.save();
+
+    res.json({ message: 'Password reset successful' });
+  } catch (err) {
+    console.error('reset-password error:', err);
     res.status(500).json({ message: err.message });
   }
 });
