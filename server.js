@@ -2,26 +2,27 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const path = require('path');
 
-const authRoutes = require('./routes/auth');
+const authRoutes    = require('./routes/auth');
 const productRoutes = require('./routes/products');
-const orderRoutes = require('./routes/orders');
-const adminRoutes = require('./routes/admin');
-const reviewRoutes = require('./routes/reviews');
+const orderRoutes   = require('./routes/orders');
+const adminRoutes   = require('./routes/admin');
+const reviewRoutes  = require('./routes/reviews');
+const uploadRoutes  = require('./routes/upload'); // Cloudinary upload endpoint
 
 const app = express();
 
-// Middleware
+// ─── MIDDLEWARE ───────────────────────────────────────────────────────────────
+
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, Postman, etc.)
+    // Allow requests with no origin (mobile apps, Postman, curl, etc.)
     if (!origin) return callback(null, true);
 
     const isAllowed =
       origin === 'http://localhost:5173' ||
       origin === 'http://localhost:3000' ||
-      origin.endsWith('.vercel.app') ||             // All vercel preview/prod URLs
+      origin.endsWith('.vercel.app') ||             // All Vercel preview/prod URLs
       origin.includes('20231049karthikkumar');       // Your specific Vercel team URLs
 
     if (isAllowed) {
@@ -34,33 +35,43 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
-app.use(express.json({ limit: '100mb' }));
-app.use(express.urlencoded({ extended: true, limit: '100mb' }));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Routes
-app.use('/api/auth', authRoutes);
+// Parse JSON and URL-encoded bodies
+// Note: We keep the limit for any JSON payloads, but images now go via multipart (Cloudinary)
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// NOTE: The old `/uploads` static route has been removed.
+// Images are now served from Cloudinary's global CDN — no local disk needed.
+
+// ─── ROUTES ──────────────────────────────────────────────────────────────────
+
+app.use('/api/auth',     authRoutes);
 app.use('/api/products', productRoutes);
-app.use('/api/orders', orderRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/reviews', reviewRoutes);
+app.use('/api/orders',   orderRoutes);
+app.use('/api/admin',    adminRoutes);
+app.use('/api/reviews',  reviewRoutes);
+app.use('/api/upload',   uploadRoutes); // POST /api/upload — image upload to Cloudinary
 
-// Health check and Root route
+// ─── HEALTH CHECK & ROOT ─────────────────────────────────────────────────────
+
 app.get('/', (req, res) => res.send('Welcome to HASHTHAKALA API! The backend is successfully running.'));
 app.get('/api/health', (req, res) => res.json({ status: 'ok', message: 'HASHTHAKALA API running' }));
 
-// Error handler
+// ─── GLOBAL ERROR HANDLER ────────────────────────────────────────────────────
+
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: err.message || 'Internal Server Error' });
+  console.error('❌ Server Error:', err.stack);
+  res.status(err.status || 500).json({ message: err.message || 'Internal Server Error' });
 });
 
-// Connect to MongoDB
+// ─── DATABASE + SERVER START ─────────────────────────────────────────────────
+
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => {
     console.log('✅ Connected to MongoDB');
-    app.listen(process.env.PORT, () => {
-      console.log(`🚀 Server running on http://localhost:${process.env.PORT}`);
+    app.listen(process.env.PORT || 5000, () => {
+      console.log(`🚀 Server running on http://localhost:${process.env.PORT || 5000}`);
     });
   })
   .catch(err => {
