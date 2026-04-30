@@ -66,7 +66,7 @@ app.get('/api/test-email', async (req, res) => {
   const { sendOTPEmail, isEmailConfigured } = require('./config/mailer');
   const to = req.query.to || process.env.EMAIL_USER || 'srihasthikala@gmail.com';
   try {
-    const origin = req.headers.origin || req.headers.referer || 'https://ecommerce-frontend.vercel.app'; // Fallback for direct browser hit
+    const origin = req.headers.origin || req.headers.referer || 'https://ecommerce-frontend-nine-blush.vercel.app'; // Fallback
     console.log('Test email triggered. Configured:', isEmailConfigured(), '→', to, 'Origin:', origin);
     await sendOTPEmail(to, '123456', 'Test User', origin);
     res.json({

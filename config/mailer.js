@@ -189,7 +189,7 @@ const sendAdminOrderNotification = async (order) => {
       <ul>
         ${order.items.map(item => `<li>${item.name} (x${item.quantity}) - ${item.size || ''}</li>`).join('')}
       </ul>
-      <p><a href="https://ecommerce-frontend.vercel.app/admin/orders" style="color:#c9a84c;">View in Admin Panel</a></p>
+      <p><a href="https://ecommerce-frontend-nine-blush.vercel.app/admin/orders" style="color:#c9a84c;">View in Admin Panel</a></p>
     </div>
   </div>`;
 
@@ -227,7 +227,7 @@ const sendCustomerOrderConfirmation = async (order) => {
       </div>
       <p>We will notify you once your artisan treasures are shipped.</p>
       <div style="text-align:center;margin-top:30px;">
-        <a href="https://ecommerce-frontend.vercel.app/track" style="color:#c9a84c;text-decoration:none;border:1px solid #c9a84c;padding:10px 20px;">Track Your Order</a>
+        <a href="https://ecommerce-frontend-nine-blush.vercel.app/track" style="color:#c9a84c;text-decoration:none;border:1px solid #c9a84c;padding:10px 20px;">Track Your Order</a>
       </div>
     </div>
   </div>`;
