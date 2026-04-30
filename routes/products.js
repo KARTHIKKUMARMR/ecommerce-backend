@@ -16,7 +16,7 @@ router.get('/', async (req, res) => {
       if (minPrice) query.price.$gte = Number(minPrice);
       if (maxPrice) query.price.$lte = Number(maxPrice);
     }
-    if (size) query.sizes = { $in: [size] };
+    if (size) query['sizes.size'] = size;
     if (search) query.$text = { $search: search };
 
     const skip = (Number(page) - 1) * Number(limit);
