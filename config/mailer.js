@@ -249,29 +249,68 @@ const sendCustomerOrderConfirmation = async (order) => {
  */
 const sendStatusUpdateEmail = async (order) => {
   const email = order.user?.email || order.guestInfo?.email;
-  if (!isEmailConfigured() || !email) return null;
+  const name = order.user?.name || order.guestInfo?.name || 'Valued Customer';
+  
+  if (!isEmailConfigured() || !email) {
+    console.warn('📧 Email skip: Config missing or no recipient');
+    return null;
+  }
 
-  let statusText = '';
+  let statusTitle = '';
+  let statusMessage = '';
   let emoji = '📦';
-  if (order.orderStatus === 'shipped') { statusText = 'has been Shipped!'; emoji = '🚚'; }
-  else if (order.orderStatus === 'delivered') { statusText = 'has been Delivered!'; emoji = '🎁'; }
-  else if (order.orderStatus === 'out_for_delivery') { statusText = 'is Out for Delivery!'; emoji = '🛵'; }
-  else return; // Only notify for major updates
+  let subject = '';
+
+  const status = order.orderStatus;
+
+  if (status === 'shipped') {
+    statusTitle = 'Your Order has Shipped! 🚚';
+    statusMessage = `Exciting news! Your artisan treasures from HASHTHAKALA are on their way. You can track your package using the details below:`;
+    subject = `Order Shipped: #${order._id.toString().slice(-8).toUpperCase()}`;
+    emoji = '🚚';
+  } else if (status === 'delivered') {
+    statusTitle = 'Order Delivered! 🎁';
+    statusMessage = `Your order has been successfully delivered. We hope you love your new HASHTHAKALA pieces! We would love to hear your feedback.`;
+    subject = `Delivered: #${order._id.toString().slice(-8).toUpperCase()}`;
+    emoji = '🎁';
+  } else if (status === 'out_for_delivery') {
+    statusTitle = 'Out for Delivery! 🛵';
+    statusMessage = `Your package is with our delivery partner and will reach you very soon. Please keep your phone reachable.`;
+    subject = `Out for Delivery: #${order._id.toString().slice(-8).toUpperCase()}`;
+    emoji = '🛵';
+  } else {
+    // Other statuses (confirmed, processing, etc.)
+    statusTitle = `Order Update: ${status.toUpperCase()}`;
+    statusMessage = `Your order status has been updated to ${status.replace('_', ' ')}.`;
+    subject = `Order Update: #${order._id.toString().slice(-8).toUpperCase()}`;
+  }
 
   const htmlContent = `
   <div style="background:#f4f0e8;padding:20px;font-family:serif;">
-    <div style="max-width:600px;margin:0 auto;background:#1a0a0a;padding:40px;border-radius:12px;color:#d4c4a0;">
-      <h2 style="color:#c9a84c;text-align:center;">Order Update ${emoji}</h2>
-      <p>Your order <strong>#${order._id.toString().slice(-8).toUpperCase()}</strong> ${statusText}</p>
-      ${order.trackingId ? `
-      <div style="background:#2a1010;padding:20px;border-radius:8px;margin:20px 0;text-align:center;">
-        <p style="margin:0;font-size:12px;color:#8b6914;">TRACKING ID</p>
-        <p style="font-size:20px;color:#c9a84c;margin:8px 0;">${order.trackingId}</p>
-        ${order.courierName ? `<p style="margin:0;font-size:14px;">Courier: ${order.courierName}</p>` : ''}
-      </div>` : ''}
-      <div style="text-align:center;margin-top:30px;">
-        <a href="https://ecommerce-frontend.vercel.app/track" style="color:#c9a84c;text-decoration:none;border:1px solid #c9a84c;padding:10px 20px;">Track Live Status</a>
+    <div style="max-width:600px;margin:0 auto;background:#1a0a0a;padding:40px;border-radius:12px;color:#d4c4a0;border:1px solid #c9a84c;">
+      <div style="text-align:center;margin-bottom:30px;">
+        <h1 style="color:#c9a84c;margin:0;letter-spacing:3px;">HASHTHAKALA</h1>
+        <p style="font-size:10px;color:#8b6914;">${status.toUpperCase()} NOTIFICATION</p>
       </div>
+
+      <h2 style="color:#c9a84c;text-align:center;">${statusTitle}</h2>
+      <p style="color:#d4c4a0;">Hello ${name},</p>
+      <p style="line-height:1.6;color:#9a8060;">${statusMessage}</p>
+
+      ${order.trackingId ? `
+      <div style="background:#2a1010;padding:24px;border:1px solid #c9a84c;border-radius:8px;margin:24px 0;text-align:center;">
+        <p style="margin:0;font-size:10px;color:#8b6914;text-transform:uppercase;letter-spacing:2px;">Tracking ID</p>
+        <p style="font-size:24px;color:#c9a84c;margin:8px 0;font-family:monospace;">${order.trackingId}</p>
+        ${order.courierName ? `<p style="margin:0;font-size:14px;color:#d4c4a0;">Courier: <strong>${order.courierName}</strong></p>` : ''}
+      </div>` : ''}
+
+      <div style="text-align:center;margin-top:30px;">
+        <a href="https://ecommerce-frontend.vercel.app/track" style="display:inline-block;background:#c9a84c;color:#1a0a0a;text-decoration:none;padding:12px 24px;border-radius:4px;font-weight:bold;">Track Order Status</a>
+      </div>
+
+      <p style="margin-top:40px;font-size:12px;color:#6b5030;text-align:center;border-top:1px solid #2a1010;padding-top:20px;">
+        Order ID: #${order._id.toString().toUpperCase()}
+      </p>
     </div>
   </div>`;
 
@@ -280,8 +319,8 @@ const sendStatusUpdateEmail = async (order) => {
     headers: { 'api-key': process.env.BREVO_API_KEY, 'content-type': 'application/json' },
     body: JSON.stringify({
       sender: { name: 'HASHTHAKALA', email: 'srihasthikala@gmail.com' },
-      to: [{ email }],
-      subject: `Order Update: #${order._id.toString().slice(-8).toUpperCase()} ${order.orderStatus.toUpperCase()}`,
+      to: [{ email, name }],
+      subject: subject,
       htmlContent
     })
   });

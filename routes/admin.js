@@ -193,11 +193,25 @@ router.put('/orders/:id/status', async (req, res) => {
       req.params.id,
       update,
       { new: true }
-    );
+    ).populate('user', 'name email'); // IMPORTANT: Fetch user email!
+
     if (!order) return res.status(404).json({ message: 'Order not found' });
 
+    // Detailed Logging for Debugging
+    const targetEmail = order.user?.email || order.guestInfo?.email;
+    console.log(`🔔 Status Update Triggered:`);
+    console.log(`   - Order ID: ${order._id}`);
+    console.log(`   - New Status: ${status}`);
+    console.log(`   - Customer Email: ${targetEmail || 'NOT FOUND'}`);
+
     // Send notification
-    sendStatusUpdateEmail(order).catch(e => console.error('Status email failed', e));
+    if (targetEmail) {
+      sendStatusUpdateEmail(order)
+        .then(() => console.log(`   ✅ Email sent successfully to ${targetEmail}`))
+        .catch(e => console.error(`   ❌ Email failed for ${targetEmail}:`, e.message));
+    } else {
+      console.warn(`   ⚠️ Skipping email: No email address found for this order.`);
+    }
 
     res.json(order);
   } catch (err) {
