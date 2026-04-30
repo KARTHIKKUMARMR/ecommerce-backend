@@ -16,7 +16,41 @@ const express = require('express');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 const { protect } = require('../middleware/auth');
+const { sendAdminOrderNotification, sendCustomerOrderConfirmation } = require('../config/mailer');
 const router = express.Router();
+
+// ─── PUBLIC TRACKING ROUTE ───────────────────────────────────────────────────
+/**
+ * GET /api/orders/track/:id
+ * Allows tracking by Order ID or Tracking ID.
+ * This is a public route.
+ */
+router.get('/track/:id', async (req, res) => {
+  try {
+    // Try finding by Order ID first, then by Tracking ID
+    let order = await Order.findById(req.params.id)
+      .populate('items.product', 'name images')
+      .select('orderStatus trackingId courierName items total createdAt shippingAddress');
+    
+    if (!order) {
+      order = await Order.findOne({ trackingId: req.params.id })
+        .populate('items.product', 'name images')
+        .select('orderStatus trackingId courierName items total createdAt shippingAddress');
+    }
+
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+    res.json(order);
+  } catch (err) {
+    // Handle invalid ObjectId format for Order ID
+    if (err.kind === 'ObjectId') {
+      const order = await Order.findOne({ trackingId: req.params.id })
+        .populate('items.product', 'name images')
+        .select('orderStatus trackingId courierName items total createdAt shippingAddress');
+      if (order) return res.json(order);
+    }
+    res.status(500).json({ message: err.message });
+  }
+});
 
 // ─── HELPER: Validate Payment Method ────────────────────────────────────────
 /**
@@ -93,6 +127,11 @@ router.post('/', protect, async (req, res) => {
     });
 
     await deductStock(items);
+    
+    // Notifications (Fire and forget - don't block response)
+    sendAdminOrderNotification(order).catch(e => console.error('Admin email failed', e));
+    sendCustomerOrderConfirmation(order).catch(e => console.error('Customer email failed', e));
+
     res.status(201).json(order);
   } catch (err) {
     console.error('Order error:', err);
@@ -146,6 +185,11 @@ router.post('/guest', async (req, res) => {
     });
 
     await deductStock(items);
+
+    // Notifications (Fire and forget)
+    sendAdminOrderNotification(order).catch(e => console.error('Admin email failed', e));
+    sendCustomerOrderConfirmation(order).catch(e => console.error('Customer email failed', e));
+
     res.status(201).json(order);
   } catch (err) {
     console.error('Guest order error:', err);

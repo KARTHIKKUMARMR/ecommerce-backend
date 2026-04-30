@@ -15,6 +15,7 @@ const Order = require('../models/Order');
 const User = require('../models/User');
 const { protect, adminOnly } = require('../middleware/auth');
 const { cloudinary, upload } = require('../config/cloudinary');
+const { sendStatusUpdateEmail } = require('../config/mailer');
 const router = express.Router();
 
 // All admin routes require login + admin role
@@ -182,12 +183,22 @@ router.get('/orders', async (req, res) => {
 
 router.put('/orders/:id/status', async (req, res) => {
   try {
+    const { status, trackingId, courierName } = req.body;
+    
+    const update = { orderStatus: status };
+    if (trackingId !== undefined) update.trackingId = trackingId;
+    if (courierName !== undefined) update.courierName = courierName;
+
     const order = await Order.findByIdAndUpdate(
       req.params.id,
-      { orderStatus: req.body.status },
+      update,
       { new: true }
     );
     if (!order) return res.status(404).json({ message: 'Order not found' });
+
+    // Send notification
+    sendStatusUpdateEmail(order).catch(e => console.error('Status email failed', e));
+
     res.json(order);
   } catch (err) {
     res.status(500).json({ message: err.message });

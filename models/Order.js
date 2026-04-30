@@ -35,9 +35,12 @@ const orderSchema = new mongoose.Schema({
   paymentStatus: { type: String, enum: ['pending', 'paid', 'failed'], default: 'pending' },
   orderStatus: {
     type: String,
-    enum: ['placed', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'],
+    enum: ['placed', 'confirmed', 'processing', 'shipped', 'out_for_delivery', 'delivered', 'cancelled'],
     default: 'placed',
   },
+  trackingId:   { type: String, default: '' },
+  courierName:  { type: String, default: '' },
+  trackingLink: { type: String, default: '' },
 
   subtotal:      { type: Number, required: true },
   shippingCharge:{ type: Number, default: 0 },
