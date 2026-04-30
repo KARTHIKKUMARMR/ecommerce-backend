@@ -57,8 +57,8 @@ app.use('/api/marketing', marketingRoutes);
 
 // ─── HEALTH CHECK & ROOT ─────────────────────────────────────────────────────
 
-app.get('/', (req, res) => res.send('Welcome to HASHTHAKALA API! The backend is successfully running.'));
-app.get('/api/health', (req, res) => res.json({ status: 'ok', message: 'HASHTHAKALA API running' }));
+app.get('/', (req, res) => res.send('Welcome to Handkala API! The backend is successfully running.'));
+app.get('/api/health', (req, res) => res.json({ status: 'ok', message: 'Handkala API running' }));
 
 // ─── TEST EMAIL ENDPOINT ──────────────────────────────────────────────────────
 // Open in browser: https://your-render-url.onrender.com/api/test-email?to=yourmail@gmail.com
