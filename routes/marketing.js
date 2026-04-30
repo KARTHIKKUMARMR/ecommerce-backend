@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Settings = require('../models/Settings');
 const Coupon = require('../models/Coupon');
-const { protect, admin } = require('../middleware/auth');
+const { protect, adminOnly } = require('../middleware/auth');
 
 // ─── SETTINGS (BANNER & SHIPPING) ────────────────────────────────────────────
 
@@ -18,7 +18,7 @@ router.get('/settings', async (req, res) => {
 });
 
 // Admin: Update banner or shipping
-router.put('/settings/:key', protect, admin, async (req, res) => {
+router.put('/settings/:key', protect, adminOnly, async (req, res) => {
   try {
     const { value } = req.body;
     const settings = await Settings.findOneAndUpdate(
@@ -35,7 +35,7 @@ router.put('/settings/:key', protect, admin, async (req, res) => {
 // ─── COUPONS ────────────────────────────────────────────────────────────────
 
 // Admin: Get all coupons
-router.get('/coupons', protect, admin, async (req, res) => {
+router.get('/coupons', protect, adminOnly, async (req, res) => {
   try {
     const coupons = await Coupon.find().sort('-createdAt');
     res.json(coupons);
@@ -45,7 +45,7 @@ router.get('/coupons', protect, admin, async (req, res) => {
 });
 
 // Admin: Create coupon
-router.post('/coupons', protect, admin, async (req, res) => {
+router.post('/coupons', protect, adminOnly, async (req, res) => {
   try {
     const coupon = new Coupon(req.body);
     await coupon.save();
@@ -56,7 +56,7 @@ router.post('/coupons', protect, admin, async (req, res) => {
 });
 
 // Admin: Delete coupon
-router.delete('/coupons/:id', protect, admin, async (req, res) => {
+router.delete('/coupons/:id', protect, adminOnly, async (req, res) => {
   try {
     await Coupon.findByIdAndDelete(req.params.id);
     res.json({ message: 'Coupon deleted' });
