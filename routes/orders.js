@@ -49,7 +49,20 @@ const validatePayment = async (items, paymentMethod) => {
 // ─── HELPER: Deduct Stock ────────────────────────────────────────────────────
 const deductStock = async (items) => {
   for (const item of items) {
-    await Product.findByIdAndUpdate(item.product, { $inc: { stock: -item.quantity } });
+    const product = await Product.findById(item.product);
+    if (!product) continue;
+
+    if (item.size && product.sizes && product.sizes.length > 0) {
+      const sizeObj = product.sizes.find(s => s.size === item.size);
+      if (sizeObj) {
+        sizeObj.stock = Math.max(0, sizeObj.stock - item.quantity);
+      }
+    } else {
+      // Fallback for items without sizes
+      product.stock = Math.max(0, product.stock - item.quantity);
+    }
+    
+    await product.save();
   }
 };
 

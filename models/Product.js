@@ -7,9 +7,12 @@ const productSchema = new mongoose.Schema({
   originalPrice: { type: Number, default: 0 },
   category:      { type: String, required: true, enum: ['Kurtis', 'Sarees', 'Earrings', 'Bangles'] },
   images:        [{ type: String }],
-  sizes:         [{ type: String }],
+  sizes: [{
+    size:  { type: String, required: true },
+    stock: { type: Number, default: 0 }
+  }],
   colors:        [{ type: String }],
-  stock:         { type: Number, default: 0 },
+  stock:         { type: Number, default: 0 }, // Global total stock (auto-calculated)
   isFeatured:    { type: Boolean, default: false },
   isOnSale:      { type: Boolean, default: false },
   discount:      { type: Number, default: 0 },
@@ -28,6 +31,13 @@ const productSchema = new mongoose.Schema({
   },
 
 }, { timestamps: true });
+ 
+ // Automatically calculate total stock from sizes before saving
+ productSchema.pre('save', function () {
+   if (this.sizes && this.sizes.length > 0) {
+     this.stock = this.sizes.reduce((total, s) => total + (s.stock || 0), 0);
+   }
+ });
 
 productSchema.index({ name: 'text', description: 'text', tags: 'text' });
 productSchema.index({ createdAt: -1 });

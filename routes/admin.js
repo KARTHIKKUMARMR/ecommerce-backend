@@ -65,7 +65,20 @@ router.post('/products', upload.array('images', 5), async (req, res) => {
     }
 
     // Parse comma-separated strings into arrays (sent from FormData as strings)
-    if (data.sizes)  data.sizes  = Array.isArray(data.sizes)  ? data.sizes  : data.sizes.split(',').map(s => s.trim()).filter(Boolean);
+    // Parse sizes — now comes as a JSON string or array of objects [{size, stock}]
+    if (data.sizes) {
+      try {
+        data.sizes = typeof data.sizes === 'string' ? JSON.parse(data.sizes) : data.sizes;
+        // Ensure stock is numeric for each size
+        data.sizes = data.sizes.map(s => ({
+          size: s.size,
+          stock: Number(s.stock || 0)
+        }));
+      } catch (e) {
+        // Fallback for old comma-separated string if parsing fails
+        data.sizes = data.sizes.split(',').map(s => ({ size: s.trim(), stock: Number(data.stock || 0) })).filter(s => s.size);
+      }
+    }
     if (data.colors) data.colors = Array.isArray(data.colors) ? data.colors : data.colors.split(',').map(c => c.trim()).filter(Boolean);
     if (data.tags)   data.tags   = Array.isArray(data.tags)   ? data.tags   : data.tags.split(',').map(t => t.trim()).filter(Boolean);
 
@@ -107,7 +120,17 @@ router.put('/products/:id', upload.array('images', 5), async (req, res) => {
     }
     // If no new files, existing images from DB are preserved (not overwritten)
 
-    if (data.sizes  && typeof data.sizes  === 'string') data.sizes  = data.sizes.split(',').map(s => s.trim()).filter(Boolean);
+    if (data.sizes) {
+      try {
+        data.sizes = typeof data.sizes === 'string' ? JSON.parse(data.sizes) : data.sizes;
+        data.sizes = data.sizes.map(s => ({
+          size: s.size,
+          stock: Number(s.stock || 0)
+        }));
+      } catch (e) {
+        data.sizes = data.sizes.split(',').map(s => ({ size: s.trim(), stock: Number(data.stock || 0) })).filter(s => s.size);
+      }
+    }
     if (data.colors && typeof data.colors === 'string') data.colors = data.colors.split(',').map(c => c.trim()).filter(Boolean);
     if (data.tags   && typeof data.tags   === 'string') data.tags   = data.tags.split(',').map(t => t.trim()).filter(Boolean);
 
