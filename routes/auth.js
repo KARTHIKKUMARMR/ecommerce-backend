@@ -75,6 +75,10 @@ router.post('/send-otp', async (req, res) => {
     // Always log to console (visible in Render logs and local terminal)
     console.log(`\n🔐 OTP for ${email}: ${rawOTP}  (expires in 10 min)\n`);
 
+    // ── Hash password manually ───────────────────────────────────────────
+    // We do this because findOneAndUpdate doesn't trigger the User model's 'pre-save' hook
+    const hashedPassword = await bcrypt.hash(password, 12);
+
     // ── Save pending user (upsert — handles resend OTP case) ────────────
     // We use findOneAndUpdate + upsert so if user clicks "Resend" it updates
     // the existing unverified record instead of creating a duplicate.
@@ -83,7 +87,7 @@ router.post('/send-otp', async (req, res) => {
       {
         name:      name.trim(),
         email:     email.toLowerCase(),
-        password,         // User model pre-save hook will hash this
+        password:  hashedPassword,
         phone:     phone?.trim() || '',
         otp:       hashedOTP,
         otpExpiry,
