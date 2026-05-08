@@ -34,6 +34,85 @@ router.get('/', async (req, res) => {
   }
 });
 
+// @GET /api/products/hero — Latest products with Cloudinary images for homepage hero slider
+router.get('/hero', async (req, res) => {
+  try {
+    // First try featured products, then fall back to latest products
+    let products = await Product.find({ isFeatured: true })
+      .sort({ createdAt: -1 })
+      .limit(8)
+      .lean();
+
+    // If no featured products, get latest products
+    if (products.length === 0) {
+      products = await Product.find()
+        .sort({ createdAt: -1 })
+        .limit(20)
+        .lean();
+    }
+
+    // Filter to only products with valid Cloudinary (http) images
+    const heroProducts = products
+      .filter(p => p.images && p.images.some(img => img.startsWith('http')))
+      .slice(0, 6)
+      .map(p => ({
+        _id: p._id,
+        name: p.name,
+        category: p.category,
+        isFeatured: p.isFeatured,
+        image: p.images.find(img => img.startsWith('http')),
+      }));
+
+    console.log(`[HERO API] Returning ${heroProducts.length} hero products`);
+    res.json({ heroProducts });
+  } catch (err) {
+    console.error('[HERO API] Error:', err.message);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// @GET /api/products/latest-by-category — One latest product image per category for collection cards
+router.get('/latest-by-category', async (req, res) => {
+  try {
+    const categories = ['Sarees', 'Dupattas', 'Dress Materials', 'Running Fabric'];
+    const result = {};
+
+    for (const category of categories) {
+      // Find the LATEST product in this exact category that has a Cloudinary image
+      const product = await Product.findOne({
+        category: category,
+        images: { $exists: true, $ne: [] }
+      })
+        .sort({ createdAt: -1 })
+        .lean();
+
+      if (product) {
+        // Only use images that start with http (Cloudinary URLs)
+        const cloudinaryImage = product.images.find(img => img.startsWith('http'));
+        if (cloudinaryImage) {
+          result[category] = {
+            _id: product._id,
+            name: product.name,
+            image: cloudinaryImage,
+          };
+          console.log(`[CATEGORY API] ${category} → ${product.name} → ${cloudinaryImage.substring(0, 60)}...`);
+        } else {
+          console.log(`[CATEGORY API] ${category} → ${product.name} has no Cloudinary images`);
+          result[category] = null;
+        }
+      } else {
+        console.log(`[CATEGORY API] ${category} → No products found`);
+        result[category] = null;
+      }
+    }
+
+    res.json({ categories: result });
+  } catch (err) {
+    console.error('[CATEGORY API] Error:', err.message);
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // @GET /api/products/:id
 router.get('/:id', async (req, res) => {
   try {
