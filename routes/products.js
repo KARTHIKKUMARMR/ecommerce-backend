@@ -34,36 +34,30 @@ router.get('/', async (req, res) => {
   }
 });
 
-// @GET /api/products/hero — Latest products with Cloudinary images for homepage hero slider
+// @GET /api/products/hero — LATEST uploaded products with Cloudinary images for homepage hero slider
+// Always returns the most recently uploaded products so homepage updates instantly
 router.get('/hero', async (req, res) => {
   try {
-    // First try featured products, then fall back to latest products
-    let products = await Product.find({ isFeatured: true })
-      .sort({ createdAt: -1 })
-      .limit(8)
+    // ALWAYS fetch the absolute newest products — sorted by upload date descending
+    const products = await Product.find()
+      .sort({ createdAt: -1 })  // newest first
+      .limit(30)                // scan enough to find products with images
       .lean();
-
-    // If no featured products, get latest products
-    if (products.length === 0) {
-      products = await Product.find()
-        .sort({ createdAt: -1 })
-        .limit(20)
-        .lean();
-    }
 
     // Filter to only products with valid Cloudinary (http) images
     const heroProducts = products
       .filter(p => p.images && p.images.some(img => img.startsWith('http')))
-      .slice(0, 6)
+      .slice(0, 6)  // take up to 6 for the slider
       .map(p => ({
         _id: p._id,
         name: p.name,
         category: p.category,
         isFeatured: p.isFeatured,
         image: p.images.find(img => img.startsWith('http')),
+        uploadedAt: p.createdAt,
       }));
 
-    console.log(`[HERO API] Returning ${heroProducts.length} hero products`);
+    console.log(`[HERO API] Returning ${heroProducts.length} hero products:`, heroProducts.map(p => `${p.name} (${p.category})`));
     res.json({ heroProducts });
   } catch (err) {
     console.error('[HERO API] Error:', err.message);
