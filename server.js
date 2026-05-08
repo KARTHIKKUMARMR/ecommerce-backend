@@ -9,6 +9,7 @@ const orderRoutes   = require('./routes/orders');
 const adminRoutes   = require('./routes/admin');
 const marketingRoutes = require('./routes/marketing');
 const reviewRoutes  = require('./routes/reviews');
+const collectionsRoutes = require('./routes/collections');
 const uploadRoutes  = require('./routes/upload'); // Cloudinary upload endpoint
 
 const app = express();
@@ -54,6 +55,7 @@ app.use('/api/admin',    adminRoutes);
 app.use('/api/reviews',  reviewRoutes);
 app.use('/api/upload',   uploadRoutes); // POST /api/upload — image upload to Cloudinary
 app.use('/api/marketing', marketingRoutes);
+app.use('/api/collections', collectionsRoutes);
 
 // ─── HEALTH CHECK & ROOT ─────────────────────────────────────────────────────
 

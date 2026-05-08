@@ -5,7 +5,7 @@ const productSchema = new mongoose.Schema({
   description:   { type: String, required: true },
   price:         { type: Number, required: true, min: 0 },
   originalPrice: { type: Number, default: 0 },
-  category:      { type: String, required: true, enum: ['Kurtis', 'Sarees', 'Earrings', 'Bangles'] },
+  category:      { type: String, required: true, enum: ['Sarees', 'Dupattas', 'Dress Materials', 'Running Fabric'] },
   images:        [{ type: String }],
   sizes: [{
     size:  { type: String, required: true },
