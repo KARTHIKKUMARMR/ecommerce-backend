@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: hashthakala-backend
+    name: apsarasfashions-backend
     env: node
     buildCommand: npm install
     startCommand: npm start

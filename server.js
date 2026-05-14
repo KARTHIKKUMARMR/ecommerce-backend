@@ -59,8 +59,8 @@ app.use('/api/collections', collectionsRoutes);
 
 // ─── HEALTH CHECK & ROOT ─────────────────────────────────────────────────────
 
-app.get('/', (req, res) => res.send('Welcome to Handkala API! The backend is successfully running.'));
-app.get('/api/health', (req, res) => res.json({ status: 'ok', message: 'Handkala API running' }));
+app.get('/', (req, res) => res.send('Welcome to ApsarasFashions API! The backend is successfully running.'));
+app.get('/api/health', (req, res) => res.json({ status: 'ok', message: 'ApsarasFashions API running' }));
 
 // ─── TEST EMAIL ENDPOINT ──────────────────────────────────────────────────────
 // Open in browser: https://your-render-url.onrender.com/api/test-email?to=yourmail@gmail.com

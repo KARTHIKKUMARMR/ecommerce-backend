@@ -33,13 +33,13 @@ const sendOTPEmail = async (to, otp, name) => {
 <body style="margin:0;padding:20px;background:#f4f0e8;font-family:Georgia,serif;">
   <div style="max-width:500px;margin:0 auto;background:#1a0a0a;border-radius:16px;overflow:hidden;">
     <div style="background:#2a1010;padding:32px 40px;text-align:center;border-bottom:2px solid #c9a84c;">
-      <h1 style="color:#c9a84c;font-size:24px;letter-spacing:4px;margin:0;">⚜ Handkala ⚜</h1>
+      <h1 style="color:#c9a84c;font-size:24px;letter-spacing:4px;margin:0;">⚜ ApsarasFashions ⚜</h1>
       <p style="color:#8b6914;font-size:10px;margin:6px 0 0;letter-spacing:3px;">HERITAGE FASHION</p>
     </div>
     <div style="padding:36px 40px;">
       <p style="color:#d4c4a0;font-size:15px;margin:0 0 8px;">Hello <strong>${name || 'Customer'}</strong>,</p>
       <p style="color:#9a8060;line-height:1.7;font-size:13px;margin:0 0 28px;">
-        Your verification code for Handkala account registration is below.
+        Your verification code for ApsarasFashions account registration is below.
       </p>
       <div style="background:#2a1010;border:2px solid #c9a84c;border-radius:12px;padding:28px;text-align:center;margin-bottom:24px;">
         <p style="color:#8b7040;font-size:10px;letter-spacing:2px;text-transform:uppercase;margin:0 0 12px;">Verification Code</p>
@@ -47,7 +47,7 @@ const sendOTPEmail = async (to, otp, name) => {
         <p style="color:#c9a84c;font-size:11px;margin:12px 0 0;">⏱ Valid for 10 minutes only</p>
       </div>
       <p style="color:#6b5030;font-size:12px;line-height:1.6;">
-        If you didn't register on Handkala, please ignore this email.
+        If you didn't register on ApsarasFashions, please ignore this email.
       </p>
     </div>
   </div>
@@ -65,7 +65,7 @@ const sendOTPEmail = async (to, otp, name) => {
     },
     body: JSON.stringify({
       sender: {
-        name: 'Handkala',
+        name: 'ApsarasFashions',
         email: 'srihasthikala@gmail.com'
       },
       to: [
@@ -74,7 +74,7 @@ const sendOTPEmail = async (to, otp, name) => {
           name: name || 'Customer'
         }
       ],
-      subject: `${otp} is your Handkala verification code`,
+      subject: `${otp} is your ApsarasFashions verification code`,
       htmlContent: htmlContent
     })
   });
@@ -110,7 +110,7 @@ const sendResetPasswordEmail = async (to, url, name) => {
 <body style="margin:0;padding:20px;background:#f4f0e8;font-family:Georgia,serif;">
   <div style="max-width:500px;margin:0 auto;background:#1a0a0a;border-radius:16px;overflow:hidden;">
     <div style="background:#2a1010;padding:32px 40px;text-align:center;border-bottom:2px solid #c9a84c;">
-      <h1 style="color:#c9a84c;font-size:24px;letter-spacing:4px;margin:0;">⚜ Handkala ⚜</h1>
+      <h1 style="color:#c9a84c;font-size:24px;letter-spacing:4px;margin:0;">⚜ ApsarasFashions ⚜</h1>
       <p style="color:#8b6914;font-size:10px;margin:6px 0 0;letter-spacing:3px;">HERITAGE FASHION</p>
     </div>
     <div style="padding:36px 40px;">
@@ -141,7 +141,7 @@ const sendResetPasswordEmail = async (to, url, name) => {
     },
     body: JSON.stringify({
       sender: {
-        name: 'Handkala',
+        name: 'ApsarasFashions',
         email: 'srihasthikala@gmail.com'
       },
       to: [
@@ -197,7 +197,7 @@ const sendAdminOrderNotification = async (order) => {
     method: 'POST',
     headers: { 'api-key': process.env.BREVO_API_KEY, 'content-type': 'application/json' },
     body: JSON.stringify({
-      sender: { name: 'Handkala System', email: 'srihasthikala@gmail.com' },
+      sender: { name: 'ApsarasFashions System', email: 'srihasthikala@gmail.com' },
       to: [{ email: adminEmail }],
       subject: `New Order #${order._id.toString().slice(-6).toUpperCase()} from ${customerName}`,
       htmlContent
@@ -216,7 +216,7 @@ const sendCustomerOrderConfirmation = async (order) => {
   <div style="background:#f4f0e8;padding:20px;font-family:serif;">
     <div style="max-width:600px;margin:0 auto;background:#1a0a0a;padding:40px;border-radius:12px;color:#d4c4a0;">
       <div style="text-align:center;margin-bottom:30px;">
-        <h1 style="color:#c9a84c;margin:0;letter-spacing:3px;">Handkala</h1>
+        <h1 style="color:#c9a84c;margin:0;letter-spacing:3px;">ApsarasFashions</h1>
         <p style="font-size:10px;color:#8b6914;">ORDER CONFIRMATION</p>
       </div>
       <p>Dear ${order.user?.name || order.guestInfo?.name},</p>
@@ -236,7 +236,7 @@ const sendCustomerOrderConfirmation = async (order) => {
     method: 'POST',
     headers: { 'api-key': process.env.BREVO_API_KEY, 'content-type': 'application/json' },
     body: JSON.stringify({
-      sender: { name: 'Handkala', email: 'srihasthikala@gmail.com' },
+      sender: { name: 'ApsarasFashions', email: 'srihasthikala@gmail.com' },
       to: [{ email }],
       subject: `Order Confirmed - #${order._id.toString().slice(-8).toUpperCase()}`,
       htmlContent
@@ -265,12 +265,12 @@ const sendStatusUpdateEmail = async (order) => {
 
   if (status === 'shipped') {
     statusTitle = 'Your Order has Shipped! 🚚';
-    statusMessage = `Exciting news! Your artisan treasures from Handkala are on their way. You can track your package using the details below:`;
+    statusMessage = `Exciting news! Your artisan treasures from ApsarasFashions are on their way. You can track your package using the details below:`;
     subject = `Order Shipped: #${order._id.toString().slice(-8).toUpperCase()}`;
     emoji = '🚚';
   } else if (status === 'delivered') {
     statusTitle = 'Order Delivered! 🎁';
-    statusMessage = `Your order has been successfully delivered. We hope you love your new Handkala pieces! We would love to hear your feedback.`;
+    statusMessage = `Your order has been successfully delivered. We hope you love your new ApsarasFashions pieces! We would love to hear your feedback.`;
     subject = `Delivered: #${order._id.toString().slice(-8).toUpperCase()}`;
     emoji = '🎁';
   } else if (status === 'out_for_delivery') {
@@ -289,7 +289,7 @@ const sendStatusUpdateEmail = async (order) => {
   <div style="background:#f4f0e8;padding:20px;font-family:serif;">
     <div style="max-width:600px;margin:0 auto;background:#1a0a0a;padding:40px;border-radius:12px;color:#d4c4a0;border:1px solid #c9a84c;">
       <div style="text-align:center;margin-bottom:30px;">
-        <h1 style="color:#c9a84c;margin:0;letter-spacing:3px;">Handkala</h1>
+        <h1 style="color:#c9a84c;margin:0;letter-spacing:3px;">ApsarasFashions</h1>
         <p style="font-size:10px;color:#8b6914;">${status.toUpperCase()} NOTIFICATION</p>
       </div>
 
@@ -318,7 +318,7 @@ const sendStatusUpdateEmail = async (order) => {
     method: 'POST',
     headers: { 'api-key': process.env.BREVO_API_KEY, 'content-type': 'application/json' },
     body: JSON.stringify({
-      sender: { name: 'Handkala', email: 'srihasthikala@gmail.com' },
+      sender: { name: 'ApsarasFashions', email: 'srihasthikala@gmail.com' },
       to: [{ email, name }],
       subject: subject,
       htmlContent
